@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+mindprint-output/
+# Never commit real exports
+*.zip
+tests/fixtures/*.zip

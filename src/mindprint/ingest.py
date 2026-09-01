@@ -1,0 +1,337 @@
+"""Export ingestion: detect providers from an official data-export ZIP (or directory).
+
+Each parser is responsible for exactly one provider format. Ingestion never
+requires network access: users bring the ZIP they downloaded from their
+provider's settings page. Entries are parsed in-memory with size caps (no
+extraction to disk, so Zip-Slip/bomb risks stay out of scope by design).
+"""
+
+from __future__ import annotations
+
+import json
+import zipfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable, Literal
+
+from .schema import UnifiedConversation, UnifiedMessage
+
+# Hard caps: real exports can carry huge user attachments; refuse rather than OOM.
+MAX_ENTRY_BYTES = 512 * 1024 * 1024  # 512 MiB per JSON entry
+MAX_TOTAL_BYTES = 2 * 1024 * 1024 * 1024  # 2 GiB across all read entries
+
+Provider = Literal["auto", "chatgpt", "claude"]
+
+
+class UnsupportedExportError(ValueError):
+    """Raised when no parser recognizes the supplied archive or directory."""
+
+
+def _load_zip_entry(zf: zipfile.ZipFile, name: str) -> object:
+    """Read and json-parse a single ZIP entry in memory; None if absent/broken."""
+    info = zf.getinfo(name)
+    if info.file_size > MAX_ENTRY_BYTES:
+        raise UnsupportedExportError(
+            f"ZIP entry {name} is {info.file_size / 1e6:.0f} MB — above the "
+            f"{MAX_ENTRY_BYTES // (1024 * 1024)} MB safety cap. Re-export without attachments."
+        )
+    try:
+        with zf.open(name) as fh:
+            return json.load(fh)
+    except KeyError:
+        return None
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+
+# ---------------------------------------------------------------------------
+# ChatGPT
+# ---------------------------------------------------------------------------
+
+def parse_chatgpt(data: object) -> list[UnifiedConversation]:
+    """Parse ChatGPT conversations.json.
+
+    Layout: array of conversations; messages live in a `mapping` tree keyed by
+    node id, each node holding {message, parent, children}. The active thread is
+    the path from current_node back to the root (regenerations/edits live on
+    side branches and are intentionally excluded; legacy exports may instead
+    use a flat list of messages).
+    """
+    if not isinstance(data, list):
+        raise ValueError("ChatGPT conversations.json must be an array of conversations")
+    out: list[UnifiedConversation] = []
+    for conv in data:
+        if not isinstance(conv, dict):
+            continue
+        title = str(conv.get("title") or "")
+        conv_id = str(conv.get("conversation_id") or conv.get("id") or "")
+        msgs = _chatgpt_messages_from_tree(conv) or _chatgpt_messages_flat(conv)
+        out.append(
+            UnifiedConversation(
+                source="chatgpt",
+                id=conv_id,
+                title=title,
+                created_at=conv.get("create_time"),
+                updated_at=conv.get("update_time"),
+                messages=msgs,
+            )
+        )
+    return out
+
+
+def _chatgpt_messages_from_tree(conv: dict) -> list:
+    """Reconstruct the active thread by walking current_node up through parents.
+
+    Guards: missing current_node falls back to latest-by-time; dangling parent
+    ids stop the walk; a visited set prevents pathological cycles.
+    """
+    mapping = conv.get("mapping")
+    if not isinstance(mapping, dict) or not mapping:
+        return []
+    current = conv.get("current_node")
+    node = mapping.get(current) if current is not None else None
+    if node is None:
+        def _sort_key(item):
+            msg = item[1].get("message") or {}
+            return msg.get("create_time") or 0.0
+
+        latest_id, node = max(mapping.items(), key=_sort_key)
+    chain = []
+    visited: set[str] = set()
+    while isinstance(node, dict):
+        node_id = node.get("id")
+        if node_id is not None:
+            if node_id in visited:
+                break  # cycle guard
+            visited.add(str(node_id))
+        message = node.get("message")
+        if message:
+            chain.append(message)
+        parent = node.get("parent")
+        node = mapping.get(parent) if parent is not None else None
+    chain.reverse()
+    return [m for m in (_chatgpt_message(m) for m in chain) if m is not None]
+
+
+def _chatgpt_message(message: dict):
+    """Convert one ChatGPT message node, or return None when contentless.
+
+    Only string parts are kept: images/attachments/tool payloads are skipped,
+    not crashed on.
+    """
+    author = message.get("author") or {}
+    role = author.get("role")
+    content = message.get("content") or {}
+    parts = content.get("parts")
+    text = "\n".join(p for p in parts if isinstance(p, str)) if isinstance(parts, list) else ""
+    if not text and isinstance(content.get("text"), str):
+        text = content["text"]
+    if not role or not text.strip():
+        return None
+    metadata = author.get("metadata")
+    return UnifiedMessage(
+        role=str(role),
+        text=text,
+        timestamp=message.get("create_time"),
+        model=metadata.get("model_slug") if isinstance(metadata, dict) else None,
+    )
+
+
+def _chatgpt_messages_flat(conv: dict) -> list:
+    """Legacy layout: some old exports store a flat message list."""
+    msgs_raw = conv.get("messages")
+    if not isinstance(msgs_raw, list):
+        return []
+    out = []
+    for m in msgs_raw:
+        if isinstance(m, dict):
+            conv_msg = _chatgpt_message(m)
+            if conv_msg is not None:
+                out.append(conv_msg)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Claude
+# ---------------------------------------------------------------------------
+
+def _claude_text(message: dict) -> str:
+    """Extract text from a Claude message: `text` string or `content` block list.
+
+    Anthropic keeps adding block types (thinking, tool_use, tool_result,
+    web_search…). Only text blocks are read; anything else is skipped safely.
+    """
+    text = message.get("text")
+    if isinstance(text, str) and text.strip():
+        return text
+    blocks = message.get("content")
+    if isinstance(blocks, list):
+        chunks = []
+        for block in blocks:
+            if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str):
+                chunks.append(block["text"])
+        return "\n".join(chunks)
+    return ""
+
+
+def parse_claude(data: object, project_names: dict | None = None) -> list[UnifiedConversation]:
+    """Parse Claude conversations.json (+ optional projects.json name map).
+
+    Layout: flat array; each conversation has chat_messages (sender
+    human/assistant, text or content blocks), uuid, name, created_at, and
+    optionally project_uuid linking to projects.json. Unknown senders and
+    missing fields degrade gracefully instead of dropping the conversation.
+    """
+    if not isinstance(data, list):
+        raise ValueError("Claude conversations.json must be an array of conversations")
+    project_names = project_names or {}
+
+    out: list[UnifiedConversation] = []
+    for conv in data:
+        if not isinstance(conv, dict):
+            continue
+        msgs = []
+        for m in conv.get("chat_messages") or []:
+            if not isinstance(m, dict):
+                continue
+            sender = m.get("sender")
+            role = {"human": "user", "assistant": "assistant"}.get(sender)
+            text = _claude_text(m)
+            if role and text.strip():
+                msgs.append(
+                    UnifiedMessage(
+                        role=role,
+                        text=text,
+                        timestamp=_claude_time(m.get("created_at")),
+                    )
+                )
+        puuid = conv.get("project_uuid")
+        out.append(
+            UnifiedConversation(
+                source="claude",
+                id=str(conv.get("uuid") or ""),
+                title=str(conv.get("name") or ""),
+                created_at=_claude_time(conv.get("created_at")),
+                updated_at=_claude_time(conv.get("updated_at")),
+                project=project_names.get(puuid) if isinstance(puuid, str) else None,
+                messages=msgs,
+            )
+        )
+    return out
+
+
+def _claude_time(value) -> float | None:
+    """Claude timestamps are ISO-8601 strings; numeric seconds also tolerated."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        from datetime import datetime
+
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Ingestion
+# ---------------------------------------------------------------------------
+
+def ingest(path: str | Path, provider: Provider = "auto") -> list[UnifiedConversation]:
+    """Load an official export ZIP (or extracted directory).
+
+    provider="auto" detects the format from archive markers (falling back to
+    structural probing on truly ambiguous exports); explicit "chatgpt"/"claude"
+    skips detection entirely.
+    """
+    path = Path(path)
+    if path.is_file() and zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as zf:
+            names = set(zf.namelist())
+            return _ingest_from_names(zf, names, provider)
+    if path.is_dir():
+        names = {str(p.relative_to(path)) for p in path.rglob("*") if p.is_file()}
+        return _ingest_from_names(path, names, provider)
+    raise UnsupportedExportError(f"Not a ZIP export or directory: {path}")
+
+
+def _ingest_from_names(source, names: set[str], provider: Provider) -> list[UnifiedConversation]:
+    conv_entry = _find_entry(names, "conversations.json")
+    if conv_entry is None:
+        raise UnsupportedExportError(
+            "No conversations.json found — is this an official ChatGPT or Claude data export?"
+        )
+    data = _load(source, conv_entry)
+    if data is None:
+        raise UnsupportedExportError("conversations.json is empty or not valid JSON")
+
+    if provider == "chatgpt":
+        return parse_chatgpt(data)
+    if provider == "claude":
+        return parse_claude(data, _claude_project_names(source, names))
+
+    # Auto-detect: Claude carries markers ChatGPT never has, and vice versa.
+    is_claude = any(_find_entry(names, m) for m in ("projects.json", "users.json", "memories.json"))
+    is_chatgpt = any(
+        _find_entry(names, m)
+        for m in ("user.json", "model_comparisons.json", "shared_conversations.json", "chat.html")
+    )
+    if is_claude and not is_chatgpt:
+        return parse_claude(data, _claude_project_names(source, names))
+    if is_chatgpt and not is_claude:
+        return parse_chatgpt(data)
+    # Ambiguous (e.g. re-zipped, merged or renamed exports): probe structure.
+    return _probe_both(data)
+
+
+def _probe_both(data: object) -> list[UnifiedConversation]:
+    """Try both parsers; decide by yield, then by structural signature."""
+    try:
+        chatgpt = parse_chatgpt(data)
+    except ValueError:
+        chatgpt = []
+    try:
+        claude = parse_claude(data)
+    except ValueError:
+        claude = []
+    chatgpt_ok = any(c.messages for c in chatgpt)
+    claude_ok = any(c.messages for c in claude)
+    if chatgpt_ok and not claude_ok:
+        return chatgpt
+    if claude_ok and not chatgpt_ok:
+        return claude
+    if chatgpt_ok and claude_ok:
+        # Claude conversations carry chat_messages with sender fields.
+        if isinstance(data, list) and data and isinstance(data[0], dict):
+            msgs = data[0].get("chat_messages")
+            if isinstance(msgs, list) and msgs and isinstance(msgs[0], dict) and "sender" in msgs[0]:
+                return claude
+        return chatgpt
+    raise UnsupportedExportError("conversations.json recognized but no parseable conversations found")
+
+
+def _claude_project_names(source, names: set[str]) -> dict:
+    entry = _find_entry(names, "projects.json")
+    if entry is None:
+        return {}
+    data = _load(source, entry)
+    if not isinstance(data, list):
+        return {}
+    return {p.get("uuid"): p.get("name") for p in data if isinstance(p, dict) and p.get("uuid")}
+
+
+def _find_entry(names: set[str], filename: str) -> str | None:
+    """Match an entry by basename, whatever directory prefix wraps it."""
+    matches = sorted(n for n in names if n == filename or n.replace("\\", "/").endswith("/" + filename))
+    return matches[0] if matches else None
+
+
+def _load(source, entry: str):
+    if isinstance(source, zipfile.ZipFile):
+        return _load_zip_entry(source, entry)
+    try:
+        with open(Path(source) / entry, "rb") as fh:
+            return json.load(fh)
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
