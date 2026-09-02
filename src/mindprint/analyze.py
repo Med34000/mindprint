@@ -26,7 +26,11 @@ STOPWORDS = frozenset(
     car ne pas plus tres très est sont était cest c'est que qui quoi dont ce cet cette
     ces mon ton son ma ta sa mes tes ses nos vos leurs pour dans sur avec sans chez
     comme tout tous toute toutes meme même aussi peu puis donc alors si non oui est
-    fais faire fait peux peut voulez vouloir suis es sommes etes êtes sera serait""".split()
+    fais faire fait peux peut voulez vouloir suis es sommes etes êtes sera serait
+    par moi bien merci etre être avoir vais va vont ver veux veuillez stp svp
+    quand meme aussi chose choses truc trucs genre du coup là deja déjà encore
+    faut serait puisse sais sait savoir alors du au aux ce sur dont ainsi
+    j'ai n'ai c'est qu'il qu'elle d'un d'une l'on qu'on""".split()
 )
 
 WORD_RE = re.compile(r"[a-zà-öø-ÿ0-9]['a-zà-öø-ÿ0-9-]*", re.IGNORECASE)
