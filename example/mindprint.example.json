@@ -1,0 +1,362 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-02T17:29:14+00:00",
+  "notes": {
+    "method": "local statistics only; no model, no network",
+    "language_heuristic": "function-word share EN vs FR (approximate, insufficient for short histories)"
+  },
+  "summary": {
+    "conversations": 499,
+    "user_messages": 1396,
+    "assistant_messages": 1097,
+    "first_activity": "2023-03-03",
+    "last_activity": "2026-07-07"
+  },
+  "per_source": {
+    "chatgpt": {
+      "conversations": 369,
+      "user_messages": 1026,
+      "assistant_messages": 802
+    },
+    "claude": {
+      "conversations": 130,
+      "user_messages": 370,
+      "assistant_messages": 295
+    }
+  },
+  "activity": {
+    "conversations_per_month": {
+      "2023-03": 11,
+      "2023-04": 14,
+      "2023-05": 13,
+      "2023-06": 9,
+      "2023-07": 16,
+      "2023-08": 12,
+      "2023-09": 11,
+      "2023-10": 14,
+      "2023-11": 18,
+      "2023-12": 15,
+      "2024-01": 13,
+      "2024-02": 10,
+      "2024-03": 13,
+      "2024-04": 4,
+      "2024-05": 18,
+      "2024-06": 14,
+      "2024-07": 13,
+      "2024-08": 10,
+      "2024-09": 9,
+      "2024-10": 12,
+      "2024-11": 19,
+      "2024-12": 12,
+      "2025-01": 13,
+      "2025-02": 11,
+      "2025-03": 15,
+      "2025-04": 14,
+      "2025-05": 17,
+      "2025-06": 3,
+      "2025-07": 12,
+      "2025-08": 9,
+      "2025-09": 19,
+      "2025-10": 13,
+      "2025-11": 8,
+      "2025-12": 10,
+      "2026-01": 10,
+      "2026-02": 14,
+      "2026-03": 13,
+      "2026-04": 12,
+      "2026-05": 12,
+      "2026-06": 11,
+      "2026-07": 3
+    },
+    "busiest_hours_utc": [
+      4,
+      6,
+      9
+    ]
+  },
+  "topics": {
+    "unigrams": [
+      {
+        "term": "take",
+        "count": 584
+      },
+      {
+        "term": "want",
+        "count": 584
+      },
+      {
+        "term": "keep",
+        "count": 584
+      },
+      {
+        "term": "simple",
+        "count": 584
+      },
+      {
+        "term": "cheap",
+        "count": 584
+      },
+      {
+        "term": "best",
+        "count": 87
+      },
+      {
+        "term": "ryokan",
+        "count": 78
+      },
+      {
+        "term": "onsen",
+        "count": 77
+      },
+      {
+        "term": "still",
+        "count": 72
+      },
+      {
+        "term": "script",
+        "count": 70
+      },
+      {
+        "term": "itinerary",
+        "count": 69
+      },
+      {
+        "term": "route",
+        "count": 67
+      },
+      {
+        "term": "zone",
+        "count": 66
+      },
+      {
+        "term": "private",
+        "count": 63
+      },
+      {
+        "term": "accepts",
+        "count": 63
+      },
+      {
+        "term": "children",
+        "count": 63
+      },
+      {
+        "term": "pandas",
+        "count": 60
+      },
+      {
+        "term": "oven",
+        "count": 58
+      },
+      {
+        "term": "kyoto",
+        "count": 57
+      },
+      {
+        "term": "jig",
+        "count": 56
+      },
+      {
+        "term": "visit",
+        "count": 55
+      },
+      {
+        "term": "feels",
+        "count": 52
+      },
+      {
+        "term": "easy",
+        "count": 52
+      },
+      {
+        "term": "right",
+        "count": 52
+      },
+      {
+        "term": "pass",
+        "count": 52
+      }
+    ],
+    "bigrams": [
+      {
+        "term": "zone 2",
+        "count": 66
+      },
+      {
+        "term": "private onsen",
+        "count": 63
+      },
+      {
+        "term": "accepts children",
+        "count": 63
+      },
+      {
+        "term": "2 feels",
+        "count": 52
+      },
+      {
+        "term": "best 60km",
+        "count": 51
+      },
+      {
+        "term": "60km route",
+        "count": 51
+      },
+      {
+        "term": "climb near",
+        "count": 51
+      },
+      {
+        "term": "near grenoble",
+        "count": 51
+      },
+      {
+        "term": "7-day itinerary",
+        "count": 49
+      },
+      {
+        "term": "two kids",
+        "count": 49
+      },
+      {
+        "term": "kids kyoto",
+        "count": 49
+      },
+      {
+        "term": "dutch oven",
+        "count": 49
+      },
+      {
+        "term": "oven vs",
+        "count": 49
+      },
+      {
+        "term": "vs baking",
+        "count": 49
+      },
+      {
+        "term": "baking steel",
+        "count": 49
+      }
+    ]
+  },
+  "projects": [
+    {
+      "title": "Freelance admin: client",
+      "source": "chatgpt",
+      "project": null,
+      "evidence_hits": 5,
+      "last_touched": "2024-08-23"
+    },
+    {
+      "title": "Freelance admin: client",
+      "source": "chatgpt",
+      "project": null,
+      "evidence_hits": 5,
+      "last_touched": "2026-03-02"
+    },
+    {
+      "title": "Freelance admin: client",
+      "source": "claude",
+      "project": null,
+      "evidence_hits": 5,
+      "last_touched": "2026-03-02"
+    },
+    {
+      "title": "Freelance admin: client",
+      "source": "chatgpt",
+      "project": null,
+      "evidence_hits": 4,
+      "last_touched": "2024-01-21"
+    },
+    {
+      "title": "Freelance admin: client",
+      "source": "claude",
+      "project": null,
+      "evidence_hits": 4,
+      "last_touched": "2024-01-21"
+    },
+    {
+      "title": "Freelance admin: quote",
+      "source": "chatgpt",
+      "project": null,
+      "evidence_hits": 4,
+      "last_touched": "2024-03-17"
+    },
+    {
+      "title": "Freelance admin: quote",
+      "source": "claude",
+      "project": null,
+      "evidence_hits": 4,
+      "last_touched": "2024-03-17"
+    },
+    {
+      "title": "Freelance admin: quote",
+      "source": "chatgpt",
+      "project": null,
+      "evidence_hits": 4,
+      "last_touched": "2024-04-21"
+    },
+    {
+      "title": "Freelance admin: client",
+      "source": "chatgpt",
+      "project": null,
+      "evidence_hits": 4,
+      "last_touched": "2024-06-10"
+    },
+    {
+      "title": "Freelance admin: client",
+      "source": "claude",
+      "project": null,
+      "evidence_hits": 4,
+      "last_touched": "2024-06-10"
+    },
+    {
+      "title": "Freelance admin: quote",
+      "source": "chatgpt",
+      "project": null,
+      "evidence_hits": 4,
+      "last_touched": "2024-11-10"
+    },
+    {
+      "title": "Freelance admin: quote",
+      "source": "claude",
+      "project": null,
+      "evidence_hits": 4,
+      "last_touched": "2024-11-10"
+    },
+    {
+      "title": "Freelance admin: client",
+      "source": "chatgpt",
+      "project": null,
+      "evidence_hits": 4,
+      "last_touched": "2025-05-19"
+    },
+    {
+      "title": "Python side project: venv",
+      "source": "chatgpt",
+      "project": null,
+      "evidence_hits": 3,
+      "last_touched": "2023-03-23"
+    },
+    {
+      "title": "Python side project: venv",
+      "source": "claude",
+      "project": null,
+      "evidence_hits": 3,
+      "last_touched": "2023-03-23"
+    }
+  ],
+  "style": {
+    "avg_user_message_chars": 51,
+    "median_user_message_chars": 52,
+    "question_ratio": 0.16,
+    "tutoiement_vs_vouvoiement": "0/0",
+    "longest_message_chars": 67
+  },
+  "languages": {
+    "method": "function-word heuristic (approximate)",
+    "english_share": 1.0,
+    "french_share": 0.0
+  }
+}
