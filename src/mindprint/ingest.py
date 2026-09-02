@@ -281,7 +281,10 @@ def _ingest_from_names(source, names: set[str], provider: Provider) -> list[Unif
         return parse_claude(data, _claude_project_names(source, names))
 
     # Auto-detect: Claude carries markers ChatGPT never has, and vice versa.
-    is_claude = any(_find_entry(names, m) for m in ("projects.json", "users.json", "memories.json"))
+    is_claude = any(
+        _find_entry(names, m) or any(n.startswith("projects/") or "/projects/" in n for n in names)
+        for m in ("projects.json", "users.json", "memories.json")
+    )
     is_chatgpt = any(
         _find_entry(names, m)
         for m in ("user.json", "model_comparisons.json", "shared_conversations.json", "chat.html")
@@ -321,13 +324,28 @@ def _probe_both(data: object) -> list[UnifiedConversation]:
 
 
 def _claude_project_names(source, names: set[str]) -> dict:
+    """Collect project uuid→name maps from both known layouts.
+
+    Old: single projects.json containing a list of project objects.
+    New (manifest exports): a projects/ directory with one JSON file per
+    project, each a bare object {uuid, name, …}.
+    """
+    out: dict = {}
     entry = _find_entry(names, "projects.json")
-    if entry is None:
-        return {}
-    data = _load(source, entry)
-    if not isinstance(data, list):
-        return {}
-    return {p.get("uuid"): p.get("name") for p in data if isinstance(p, dict) and p.get("uuid")}
+    if entry is not None:
+        data = _load(source, entry)
+        if isinstance(data, list):
+            out.update({p.get("uuid"): p.get("name") for p in data if isinstance(p, dict) and p.get("uuid")})
+    import re
+
+    per_file = sorted(
+        n for n in names if re.search(r"(^|/)projects/[^/]+\.json$", n) and not n.endswith("/projects.json")
+    )
+    for name in per_file:
+        data = _load(source, name)
+        if isinstance(data, dict) and data.get("uuid"):
+            out[data["uuid"]] = data.get("name")
+    return out
 
 
 def _find_conversation_entries(names: set[str]) -> list[str]:

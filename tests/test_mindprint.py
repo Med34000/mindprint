@@ -312,6 +312,21 @@ def test_multi_export_cli(tmp_path: Path):
     assert profile["summary"]["conversations"] == 5
 
 
+def test_claude_per_file_projects_layout(tmp_path: Path):
+    """New Claude manifest exports: projects/<uuid>.json instead of projects.json."""
+    convs, projects = build_claude_export()
+
+    src = tmp_path / "claude_new"
+    src.mkdir()
+    (src / "conversations.json").write_text(json.dumps(convs), encoding="utf-8")
+    (src / "projects").mkdir()
+    for proj in projects:
+        (src / "projects" / f"{proj['uuid']}.json").write_text(json.dumps(proj), encoding="utf-8")
+    parsed = ingest(src)
+    by_title = {c.title: c for c in parsed}
+    assert by_title["Atelier Odoo migration"].project == "IAtelier Ops"
+
+
 def test_cli_bad_path():
     proc = subprocess.run(
         [sys.executable, "-m", "mindprint.cli", "/nonexistent.zip"],
