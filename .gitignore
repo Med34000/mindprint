@@ -9,3 +9,4 @@ mindprint-output/
 # Never commit real exports
 *.zip
 tests/fixtures/*.zip
+uv.lock

@@ -314,6 +314,8 @@ def test_multi_export_cli(tmp_path: Path):
 
 def test_claude_per_file_projects_layout(tmp_path: Path):
     """New Claude manifest exports: projects/<uuid>.json instead of projects.json."""
+    from tests.make_fixtures import build_claude_export
+
     convs, projects = build_claude_export()
 
     src = tmp_path / "claude_new"
