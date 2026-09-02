@@ -257,14 +257,23 @@ def ingest(path: str | Path, provider: Provider = "auto") -> list[UnifiedConvers
 
 
 def _ingest_from_names(source, names: set[str], provider: Provider) -> list[UnifiedConversation]:
-    conv_entry = _find_entry(names, "conversations.json")
-    if conv_entry is None:
+    # Modern ChatGPT exports shard conversations across conversations-000.json, -001.json…
+    conv_entries = _find_conversation_entries(names)
+    if not conv_entries:
         raise UnsupportedExportError(
-            "No conversations.json found — is this an official ChatGPT or Claude data export?"
+            "No conversations.json (or conversations-NNN.json shards) found — "
+            "is this an official ChatGPT or Claude data export?"
         )
-    data = _load(source, conv_entry)
-    if data is None:
-        raise UnsupportedExportError("conversations.json is empty or not valid JSON")
+    data: object = []
+    for entry in conv_entries:
+        chunk = _load(source, entry)
+        if isinstance(chunk, list):
+            data.extend(chunk)
+        elif chunk is not None:
+            data = chunk  # single non-sharded payload
+            break
+    if not data:
+        raise UnsupportedExportError("conversations file(s) empty or not valid JSON")
 
     if provider == "chatgpt":
         return parse_chatgpt(data)
@@ -319,6 +328,20 @@ def _claude_project_names(source, names: set[str]) -> dict:
     if not isinstance(data, list):
         return {}
     return {p.get("uuid"): p.get("name") for p in data if isinstance(p, dict) and p.get("uuid")}
+
+
+def _find_conversation_entries(names: set[str]) -> list[str]:
+    """All conversation payloads, shards included, in stable order.
+
+    Matches conversations.json plus the newer sharded layout
+    (conversations-000.json, conversations-001.json, …), at any directory depth.
+    """
+    import re
+
+    pattern = re.compile(r"(^|/)conversations(-\d+)?\.json$")
+    matches = sorted(n for n in names if pattern.search(n))
+    # Single canonical file wins over nothing else; shards sort naturally by index.
+    return matches
 
 
 def _find_entry(names: set[str], filename: str) -> str | None:

@@ -269,6 +269,26 @@ def test_mindprint_escape_in_markdown(tmp_path: Path):
     assert "<script>" not in content
 
 
+def test_sharded_chatgpt_export(tmp_path: Path):
+    """Modern ChatGPT exports split conversations across conversations-NNN.json shards."""
+    from tests.make_fixtures import build_chatgpt_export, write_zip
+
+    convs_data = build_chatgpt_export()
+    half = len(convs_data) // 2
+    zip_path = tmp_path / "sharded.zip"
+    write_zip(
+        zip_path,
+        {
+            "user.json": {"name": "T"},
+            "conversations-000.json": convs_data[:half],
+            "conversations-001.json": convs_data[half:],
+        },
+    )
+    convs = ingest(zip_path)
+    assert len(convs) == len(convs_data)
+    assert {c.source for c in convs} == {"chatgpt"}
+
+
 def test_cli_bad_path():
     proc = subprocess.run(
         [sys.executable, "-m", "mindprint.cli", "/nonexistent.zip"],
