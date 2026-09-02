@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-02T19:07:47+00:00",
+  "generated_at": "2026-09-02T19:09:57+00:00",
   "notes": {
     "method": "local statistics only; no model, no network",
     "language_heuristic": "function-word share EN vs FR (approximate, insufficient for short histories)"
