@@ -21,7 +21,11 @@ def build_parser() -> argparse.ArgumentParser:
             "Everything runs locally; nothing is uploaded."
         ),
     )
-    parser.add_argument("export", help="Path to the data-export ZIP (or extracted directory)")
+    parser.add_argument(
+        "export",
+        nargs="+",
+        help="Path(s) to data-export ZIP(s) or directories — ChatGPT, Claude, or a mix",
+    )
     parser.add_argument(
         "-o", "--outdir", default="mindprint-output", help="Output directory (default: ./mindprint-output)"
     )
@@ -48,12 +52,13 @@ def _write_private(path: Path, write) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    export_path = Path(args.export)
-    if not export_path.exists():
-        print(f"error: path not found: {export_path}", file=sys.stderr)
-        return 2
     try:
-        conversations = ingest(export_path, provider=args.provider)
+        conversations = []
+        for export_path in map(Path, args.export):
+            if not export_path.exists():
+                print(f"error: path not found: {export_path}", file=sys.stderr)
+                return 2
+            conversations.extend(ingest(export_path, provider=args.provider))
     except UnsupportedExportError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

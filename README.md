@@ -44,13 +44,14 @@ Requires Python ≥ 3.10. No runtime dependencies.
 2. **Run mindprint** on the ZIP:
 
 ```bash
-mindprint ~/Downloads/chatgpt-export.zip
+mindprint ~/Downloads/chatgpt-export.zip ~/Downloads/claude-export.zip   # mix sources, one merged profile
+mindprint ~/Downloads/chatgpt-export.zip                                  # single source works too
 # ✅ Parsed 412 conversations (3891 user messages, 7602 assistant replies)
 #   JSON: mindprint-output/mindprint.json
 #   Markdown: mindprint-output/mindprint.md
 ```
 
-Extracted the ZIP already? Point mindprint at the directory instead — both work.
+Extracted the ZIP already? Point mindprint at the directory instead — both work. Overlapping exports are deduplicated automatically.
 
 ## 🗂 Supported formats
 
@@ -73,7 +74,8 @@ The test-suite generates synthetic export fixtures mimicking the real official f
 ## 🗺 Roadmap
 
 - [ ] v0.1 — ChatGPT + Claude ingestion, statistical profile (this release)
-- [ ] v0.2 — optional LLM enrichment (local Ollama, opt-in)
+- [x] v0.2 — multi-export merge (ChatGPT + Claude in one profile, dedup across overlapping exports)
+- [ ] v0.3 — optional LLM enrichment (local Ollama, opt-in)
 - [ ] v0.3 — Gemini (Takeout) + Grok (X archive)
 - [ ] v0.4 — timeline diffing: "what changed in my focus this month?"
 - [ ] Desktop app packaging

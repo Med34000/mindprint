@@ -46,7 +46,7 @@ _QUESTION_RE = re.compile(r"^\s*(what|why|how|when|where|who|which|can|could|sho
 
 def analyze(conversations: list[UnifiedConversation]) -> dict:
     """Compute the statistical profile. Pure function: input -> JSON-safe dict."""
-    convs = [c for c in conversations if c.messages]
+    convs = _dedupe([c for c in conversations if c.messages])
     if not convs:
         return {"error": "no parseable conversations found in export"}
 
@@ -88,6 +88,22 @@ def analyze(conversations: list[UnifiedConversation]) -> dict:
 # ---------------------------------------------------------------------------
 # Metrics
 # ---------------------------------------------------------------------------
+
+def _dedupe(convs: list[UnifiedConversation]) -> list[UnifiedConversation]:
+    """Merge duplicates across overlapping exports: same source+id keeps the
+    richest copy (users often stack an old export and a newer one)."""
+    best: dict[tuple, UnifiedConversation] = {}
+    order: list[tuple] = []
+    for c in convs:
+        key = (c.source, c.id) if c.id else (c.source, c.title, c.created_at, len(c.messages))
+        if key in best:
+            if len(c.messages) > len(best[key].messages):
+                best[key] = c
+        else:
+            best[key] = c
+            order.append(key)
+    return [best[k] for k in order]
+
 
 def _word_counter(texts: list[str]) -> Counter:
     counter: Counter = Counter()

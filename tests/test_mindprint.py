@@ -289,6 +289,29 @@ def test_sharded_chatgpt_export(tmp_path: Path):
     assert {c.source for c in convs} == {"chatgpt"}
 
 
+def test_dedupe_overlapping_exports():
+    """Feeding the same export twice must not double-count conversations."""
+    chatgpt = ingest(FIXTURES / "chatgpt_export.zip")
+    profile = analyze(chatgpt + chatgpt)
+    assert profile["summary"]["conversations"] == 3
+    assert profile["summary"]["user_messages"] == 4
+
+
+def test_multi_export_cli(tmp_path: Path):
+    """CLI accepts several exports and reports per-source stats."""
+    outdir = tmp_path / "out"
+    proc = subprocess.run(
+        [sys.executable, "-m", "mindprint.cli",
+         str(FIXTURES / "chatgpt_export.zip"), str(FIXTURES / "claude_export.zip"),
+         "-o", str(outdir)],
+        capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    profile = json.loads((outdir / "mindprint.json").read_text())
+    assert set(profile["per_source"]) == {"chatgpt", "claude"}
+    assert profile["summary"]["conversations"] == 5
+
+
 def test_cli_bad_path():
     proc = subprocess.run(
         [sys.executable, "-m", "mindprint.cli", "/nonexistent.zip"],
