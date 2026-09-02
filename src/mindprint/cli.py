@@ -11,6 +11,7 @@ from . import __version__
 from .analyze import analyze
 from .export import write_json, write_markdown
 from .ingest import Provider, UnsupportedExportError, ingest
+from .memoryfile import build_memory_file
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -70,6 +71,10 @@ def main(argv: list[str] | None = None) -> int:
     outdir = Path(args.outdir)
     json_path = _write_private(outdir / "mindprint.json", lambda p: write_json(profile, p))
     md_path = _write_private(outdir / "mindprint.md", lambda p: write_markdown(profile, p))
+    memory_path = _write_private(
+        outdir / "memory-file.md",
+        lambda p: p.write_text(build_memory_file(profile), encoding="utf-8"),
+    )
 
     if "error" in profile:
         print(f"⚠️ {profile['error']}")
@@ -82,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"   • {source}: {st['conversations']} conversations, {st['user_messages']} user messages")
     print(f"   JSON: {json_path}")
     print(f"   Markdown: {md_path}")
+    print(f"   Memory file: {memory_path}  ← paste into your AI's system context")
     return 0
 
 

@@ -21,7 +21,8 @@ Your ChatGPT and Claude histories contain months of your projects, decisions, wr
 - **Activity timeline** — conversations per month, busiest hours
 - **✍️ Writing style** — message length, question ratio, tu/vous usage
 - **🌍 Language mix** — EN/FR heuristic
-- **JSON + Markdown** output: the JSON is machine-readable (feed it to any AI as system context — your own "memory file"), the Markdown is human-readable
+- **🧠 Memory file** (`memory-file.md`) — the headline output: a compact, dated, AI-ready context block to paste into a system prompt, `CLAUDE.md`, `AGENTS.md`, or any assistant's custom instructions. Your AI starts every conversation already knowing your language, style, projects and rhythm — computed from your real history, not self-declared guesses
+- **JSON + Markdown** outputs: machine-readable profile + human-readable report
 - **Multi-source** — ChatGPT and Claude in one merged profile, duplicates across overlapping exports deduplicated automatically
 
 ## 🔒 Privacy model
@@ -93,7 +94,8 @@ The test-suite generates synthetic export fixtures mimicking the real official f
 
 - [x] v0.1 — ChatGPT + Claude ingestion, statistical profile
 - [x] v0.2 — multi-export merge (ChatGPT + Claude in one profile, dedup across overlapping exports)
-- [ ] v0.3 — optional LLM enrichment (local Ollama, opt-in)
+- [x] v0.3 — **memory file**: compact AI-ready context output (`memory-file.md`)
+- [ ] v0.4 — optional LLM enrichment (local Ollama, opt-in)
 - [ ] v0.4 — Gemini (Takeout) + Grok (X archive)
 - [ ] v0.5 — timeline diffing: "what changed in my focus this month?"
 - [ ] Desktop app packaging

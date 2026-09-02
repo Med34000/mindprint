@@ -197,12 +197,13 @@ Run mindprint on your own export to get yours, 100% locally.
         )
 
         md_lines = (outdir / "mindprint.md").read_text(encoding="utf-8").splitlines()
+        memory_lines = (outdir / "memory-file.md").read_text(encoding="utf-8").splitlines()
         terminal_lines = (
             ["$ pip install .",
              "$ mindprint demo_chatgpt/ demo_claude/ -o my-profile"]
             + [l for l in proc.stdout.strip().splitlines()]
-            + ["", "$ head -24 my-profile/mindprint.md"]
-            + md_lines[:24]
+            + ["", "$ head -18 my-profile/memory-file.md"]
+            + memory_lines[:18]
         )
         render_terminal_svg(terminal_lines, ROOT / "docs" / "terminal.svg")
 

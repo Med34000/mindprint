@@ -329,6 +329,40 @@ def test_claude_per_file_projects_layout(tmp_path: Path):
     assert by_title["Atelier Odoo migration"].project == "IAtelier Ops"
 
 
+def test_memory_file_structure():
+    """The memory file must be compact, dated, and AI-actionable."""
+    from mindprint.memoryfile import build_memory_file
+
+    profile = analyze(_all_convs())
+    mf = build_memory_file(profile)
+    assert "# User memory file" in mf
+    assert "## Communication" in mf
+    assert "## Active projects" in mf
+    assert "Atelier Odoo migration" in mf
+    assert "French" in mf or "French" in mf  # language guidance present
+    assert "verify time-sensitive details" in mf  # staleness disclaimer
+    assert len(mf) < 3500  # compact enough for a system prompt
+    lines = [l for l in mf.splitlines() if l.startswith("- ")]
+    assert len(lines) >= 4
+
+
+def test_memory_file_error_case():
+    from mindprint.memoryfile import build_memory_file
+
+    mf = build_memory_file({"error": "no parseable conversations found in export"})
+    assert "profile unavailable" in mf
+
+
+def test_cli_writes_memory_file(tmp_path: Path):
+    outdir = tmp_path / "out"
+    proc = subprocess.run(
+        [sys.executable, "-m", "mindprint.cli", str(FIXTURES / "claude_export.zip"), "-o", str(outdir)],
+        capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert (outdir / "memory-file.md").exists()
+
+
 def test_cli_bad_path():
     proc = subprocess.run(
         [sys.executable, "-m", "mindprint.cli", "/nonexistent.zip"],

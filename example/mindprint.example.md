@@ -9,7 +9,7 @@ Run mindprint on your own export to get yours, 100% locally.
 
 # 🧠 Mindprint — Self-Profile
 
-*Generated locally on 2026-09-02T17:29:14+00:00 — no data left this machine.*
+*Generated locally on 2026-09-02T19:07:47+00:00 — no data left this machine.*
 
 ## Overview
 
