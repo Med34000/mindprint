@@ -1,5 +1,7 @@
 # 🧠 mindprint
 
+[![CI](https://github.com/Med34000/mindprint/actions/workflows/ci.yml/badge.svg)](https://github.com/Med34000/mindprint/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+
 **Turn your AI chat exports into a structured self-profile — 100% locally.**
 
 Your ChatGPT and Claude histories contain months of your projects, decisions, writing style and priorities — scattered across corporate silos. **mindprint** merges them into one profile file you own: topics, active projects, activity timeline, writing style. And unlike cloud alternatives, **not a single byte leaves your machine**.
