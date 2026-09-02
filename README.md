@@ -71,6 +71,7 @@ Extracted the ZIP already? Point mindprint at the directory instead — both wor
 |---|---|---|
 | ChatGPT (ZIP) | ✅ | Handles the `mapping` tree (active thread), legacy flat layouts, and the new **sharded** `conversations-000.json…` format |
 | Claude (ZIP or manifest export) | ✅ | Flat `chat_messages`, content blocks tolerated (thinking/tool_use skipped), `projects.json` **and** per-file `projects/<uuid>.json` layouts |
+| **Hermes** (local `state.db`) | 🧪 experimental | Reads the SQLite session DB **read-only** (`mode=ro`) — user/assistant text from interactive sources only (cli/tui/desktop/discord/telegram), cron & subagent sessions excluded. Message tails are truncated at 4 000 chars (tool-output blobs). Note: Hermes threads carry infrastructure wrappers (task summaries, media notes) that can leak into topic stats — quality is lower than clean chat exports |
 | Gemini | 🧭 planned | via Google Takeout |
 | Grok | 🧭 planned | via X archive |
 
@@ -94,7 +95,7 @@ The test-suite generates synthetic export fixtures mimicking the real official f
 
 - [x] v0.1 — ChatGPT + Claude ingestion, statistical profile
 - [x] v0.2 — multi-export merge (ChatGPT + Claude in one profile, dedup across overlapping exports)
-- [x] v0.3 — **memory file**: compact AI-ready context output (`memory-file.md`)
+- [x] v0.3 — **memory file**: compact AI-ready context output (`memory-file.md`) + Hermes local-DB source (experimental, read-only)
 - [ ] v0.4 — optional LLM enrichment (local Ollama, opt-in)
 - [ ] v0.4 — Gemini (Takeout) + Grok (X archive)
 - [ ] v0.5 — timeline diffing: "what changed in my focus this month?"

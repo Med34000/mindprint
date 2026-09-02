@@ -363,6 +363,41 @@ def test_cli_writes_memory_file(tmp_path: Path):
     assert (outdir / "memory-file.md").exists()
 
 
+def test_hermes_db_parsing(tmp_path: Path):
+    """Hermes state.db: only user/assistant text from interactive sources."""
+    import sqlite3
+
+    db = tmp_path / "state.db"
+    conn = sqlite3.connect(db)
+    conn.executescript(
+        """
+        CREATE TABLE sessions (id TEXT, source TEXT, title TEXT, started_at REAL, last_activity_at REAL);
+        CREATE TABLE messages (id INTEGER PRIMARY KEY, session_id TEXT, role TEXT, content TEXT, timestamp REAL);
+        INSERT INTO sessions VALUES ('s1', 'discord', 'Test chat', 100.0, 200.0);
+        INSERT INTO sessions VALUES ('s2', 'cron', 'Automated job', 150.0, 180.0);
+        INSERT INTO messages VALUES (1, 's1', 'user', 'Bonjour Hermes', 100.0);
+        INSERT INTO messages VALUES (2, 's1', 'assistant', 'Salut !', 101.0);
+        INSERT INTO messages VALUES (3, 's1', 'tool', '{"result": "payload"}', 101.5);
+        INSERT INTO messages VALUES (4, 's2', 'user', 'automated prompt not the user', 150.0);
+        """
+    )
+    conn.commit()
+    conn.close()
+    convs = ingest(db)
+    assert len(convs) == 1  # cron session excluded
+    assert [m.role for m in convs[0].messages] == ["user", "assistant"]
+    assert convs[0].source == "hermes"
+    assert "payload" not in " ".join(m.text for m in convs[0].messages)
+
+
+def test_hermes_db_readonly(tmp_path: Path):
+    """mindprint must refuse to create/modify a Hermes DB: mode=ro or bust."""
+    db = tmp_path / "missing.db"  # mode=ro must fail on nonexistent file, not create it
+    with pytest.raises(Exception):
+        ingest(db)
+    assert not db.exists()  # nothing was created
+
+
 def test_cli_bad_path():
     proc = subprocess.run(
         [sys.executable, "-m", "mindprint.cli", "/nonexistent.zip"],

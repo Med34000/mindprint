@@ -9,6 +9,7 @@ extraction to disk, so Zip-Slip/bomb risks stay out of scope by design).
 from __future__ import annotations
 
 import json
+import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -235,6 +236,96 @@ def _claude_time(value) -> float | None:
 
 
 # ---------------------------------------------------------------------------
+# Hermes (local SQLite session DB)
+# ---------------------------------------------------------------------------
+
+# Session sources that carry the user's own voice. cron/subagent/api_server
+# sessions contain automated prompts and agent-internal traffic, not the user.
+HERMES_USER_SOURCES = frozenset({"cli", "tui", "desktop", "discord", "telegram"})
+
+# Non-prose tokens that leak into Hermes messages: media attachments, URLs,
+# filesystem paths from tool output. Stripped before analysis. Patterns are
+# linear-time and applied only to the first 4 000 chars — tool-output blobs
+# can be megabytes long and only their head ever carries paths/media markers.
+_HERMES_NOISE_RE = [
+    re.compile(r"MEDIA:\S+"),
+    re.compile(r"https?://\S+"),
+    re.compile(r"\S*/(?:opt|usr|home|tmp|var)/[^\s\"']*"),
+    re.compile(r"\b[0-9a-f]{8,}\b"),
+]
+_HERMES_CLEAN_HEAD = 4000
+
+
+def _clean_hermes_text(text: str) -> str:
+    # Bound the contribution of any single message: huge blobs are tool-output
+    # transcripts whose tail is pure noise for a prose profile. Cleaning runs
+    # on the head only — patterns above stay off the unbounded tail.
+    head, tail = text[:_HERMES_CLEAN_HEAD], ""
+    for pattern in _HERMES_NOISE_RE:
+        head = pattern.sub(" ", head)
+    return re.sub(r"[ \t]+", " ", head).strip()
+
+
+def parse_hermes(db_path: str | Path) -> list[UnifiedConversation]:
+    """Parse a Hermes state.db (SQLite) in READ-ONLY mode.
+
+    Hermes stores sessions locally in SQLite — no export flow exists, the
+    database *is* the export. Layout: sessions(id, source, title, started_at,
+    last_activity_at) + messages(session_id, role, content, timestamp) with
+    role in user/assistant/tool/session_meta. Only user/assistant text is
+    kept; tool payloads and session metadata are skipped.
+
+    The connection is opened read-only (`mode=ro`) — mindprint never writes
+    to a live assistant database.
+    """
+    import sqlite3
+
+    uri = f"file:{Path(db_path).resolve()}?mode=ro"
+    conn = sqlite3.connect(uri, uri=True)
+    try:
+        rows = conn.execute(
+            """
+            SELECT s.id, s.title, s.started_at, s.last_activity_at, s.source,
+                   m.role, m.content, m.timestamp
+            FROM sessions s JOIN messages m ON m.session_id = s.id
+            WHERE s.source IN ({placeholders})
+              AND m.role IN ('user', 'assistant')
+              AND m.content IS NOT NULL
+            ORDER BY s.started_at, m.timestamp, m.id
+            """.format(placeholders=",".join("?" * len(HERMES_USER_SOURCES))),
+            tuple(sorted(HERMES_USER_SOURCES)),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    convs: dict[str, UnifiedConversation] = {}
+    order: list[str] = []
+    for sid, title, started, last_activity, source, role, content, ts in rows:
+        text = _clean_hermes_text(str(content))
+        if len(text) < 2:
+            continue
+        conv = convs.get(sid)
+        if conv is None:
+            conv = UnifiedConversation(
+                source="hermes",
+                id=str(sid),
+                title=str(title or "(untitled)"),
+                created_at=started,
+                updated_at=last_activity,
+            )
+            convs[sid] = conv
+            order.append(sid)
+        conv.messages.append(
+            UnifiedMessage(
+                role="user" if role == "user" else "assistant",
+                text=text,
+                timestamp=ts,
+            )
+        )
+    return [convs[k] for k in order if convs[k].messages]
+
+
+# ---------------------------------------------------------------------------
 # Ingestion
 # ---------------------------------------------------------------------------
 
@@ -246,6 +337,9 @@ def ingest(path: str | Path, provider: Provider = "auto") -> list[UnifiedConvers
     skips detection entirely.
     """
     path = Path(path)
+    # Hermes session DB: a local SQLite file, no ZIP involved.
+    if path.is_file() and path.suffix == ".db":
+        return parse_hermes(path)
     if path.is_file() and zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as zf:
             names = set(zf.namelist())
