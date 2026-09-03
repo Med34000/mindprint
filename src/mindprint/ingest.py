@@ -326,6 +326,97 @@ def parse_hermes(db_path: str | Path) -> list[UnifiedConversation]:
 
 
 # ---------------------------------------------------------------------------
+# Claude Code (local JSONL session logs)
+# ---------------------------------------------------------------------------
+
+# Claude Code logs every coding-agent session to ~/.claude/projects/<slug>/*.jsonl
+# — continuously, no manual export. Each line is a JSON event:
+#   {type: "user"|"assistant"|"summary"|..., sessionId, timestamp, cwd,
+#    isSidechain: bool, message: {role, content: str | [blocks]}, uuid}
+# Sidechains are subagent transcripts (not the user's voice) and are skipped,
+# as are summary/snapshot/meta lines.
+
+def _cc_text(message: dict) -> str:
+    """Extract user/assistant prose from a Claude Code message payload."""
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        chunks = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str):
+                chunks.append(block["text"])
+        return "\n".join(chunks)
+    return ""
+
+
+def parse_claude_code(paths: list[Path]) -> list[UnifiedConversation]:
+    """Parse Claude Code JSONL session files into unified conversations."""
+    convs: dict[str, UnifiedConversation] = {}
+    order: list[str] = []
+    for path in paths:
+        try:
+            fh = open(path, encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        with fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(event, dict) or event.get("type") not in ("user", "assistant"):
+                    continue
+                if event.get("isSidechain"):
+                    continue
+                message = event.get("message")
+                if not isinstance(message, dict):
+                    continue
+                text = _cc_text(message).strip()
+                if not text:
+                    continue
+                sid = str(event.get("sessionId") or path.stem)
+                conv = convs.get(sid)
+                if conv is None:
+                    # Project name: the parent directory slug, or the cwd.
+                    slug = path.parent.name if path.parent.name not in ("projects", ".") else ""
+                    cwd = str(event.get("cwd") or "").replace("\\", "/").rstrip("/").split("/")[-1]
+                    conv = UnifiedConversation(
+                        source="claude-code",
+                        id=sid,
+                        title=slug or cwd or "(session claude-code)",
+                        created_at=_cc_time(event.get("timestamp")),
+                    )
+                    convs[sid] = conv
+                    order.append(sid)
+                ts = _cc_time(event.get("timestamp"))
+                if ts and (conv.updated_at is None or ts > conv.updated_at):
+                    conv.updated_at = ts
+                conv.messages.append(
+                    UnifiedMessage(
+                        role="user" if event["type"] == "user" else "assistant",
+                        text=text[:8000],  # bound giant paste/tool echoes
+                        timestamp=ts,
+                    )
+                )
+    return [convs[k] for k in order if convs[k].messages]
+
+
+def _cc_time(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        from datetime import datetime
+
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Ingestion
 # ---------------------------------------------------------------------------
 
@@ -340,6 +431,11 @@ def ingest(path: str | Path, provider: Provider = "auto") -> list[UnifiedConvers
     # Hermes session DB: a local SQLite file, no ZIP involved.
     if path.is_file() and path.suffix == ".db":
         return parse_hermes(path)
+    # Claude Code: a .jsonl session file or a directory of them.
+    if path.is_file() and path.suffix == ".jsonl":
+        return parse_claude_code([path])
+    if path.is_dir() and any(path.glob("*.jsonl")):
+        return parse_claude_code(sorted(path.glob("*.jsonl")))
     if path.is_file() and zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as zf:
             names = set(zf.namelist())

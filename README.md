@@ -72,6 +72,7 @@ Extracted the ZIP already? Point mindprint at the directory instead — both wor
 | ChatGPT (ZIP) | ✅ | Handles the `mapping` tree (active thread), legacy flat layouts, and the new **sharded** `conversations-000.json…` format |
 | Claude (ZIP or manifest export) | ✅ | Flat `chat_messages`, content blocks tolerated (thinking/tool_use skipped), `projects.json` **and** per-file `projects/<uuid>.json` layouts |
 | **Hermes** (local `state.db`) | 🧪 experimental | Reads the SQLite session DB **read-only** (`mode=ro`) — user/assistant text from interactive sources only (cli/tui/desktop/discord/telegram), cron & subagent sessions excluded. Message tails are truncated at 4 000 chars (tool-output blobs). Note: Hermes threads carry infrastructure wrappers (task summaries, media notes) that can leak into topic stats — quality is lower than clean chat exports |
+| **Claude Code** (local) | ✅ | Reads `~/.claude/projects/<slug>/*.jsonl` — pass the directory or a `.jsonl` file. Sidechains (subagents) and tool payloads excluded |
 | Gemini | 🧭 planned | via Google Takeout |
 | Grok | 🧭 planned | via X archive |
 
@@ -113,6 +114,8 @@ The test-suite generates synthetic export fixtures mimicking the real official f
 - [x] v0.2 — multi-export merge (ChatGPT + Claude in one profile, dedup across overlapping exports)
 - [x] v0.3 — **memory file**: compact AI-ready context output (`memory-file.md`) + Hermes local-DB source (experimental, read-only)
 - [ ] v0.4 — optional LLM enrichment (local Ollama, opt-in)
+- [x] v0.7 — **change diff**: every run reports what moved since the last one (new/dropped projects, message growth)
+- [x] v0.6 — **Claude Code source**: reads `~/.claude/projects/*.jsonl` session logs directly — continuous, no manual export
 - [x] v0.5 — **Obsidian-style vault**: Dashboard, per-project notes with source citations, monthly timeline, **open-loops ledger** (stated intentions never followed up)
 - [ ] v0.6 — Gemini (Takeout) + Grok (X archive), Claude Code JSONL source
 - [ ] v0.5 — timeline diffing: "what changed in my focus this month?"

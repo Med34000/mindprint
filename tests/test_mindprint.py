@@ -398,6 +398,44 @@ def test_hermes_db_readonly(tmp_path: Path):
     assert not db.exists()  # nothing was created
 
 
+def test_claude_code_jsonl(tmp_path: Path):
+    """Claude Code JSONL: prose kept, sidechains/summaries/tool blocks dropped."""
+    from tests.make_fixtures import write_zip
+
+    proj = tmp_path / "projects" / "-home-user-monrepo"
+    proj.mkdir(parents=True)
+    events = [
+        {"type": "summary", "summary": "Fix the parser"},
+        {"type": "user", "sessionId": "s-1", "timestamp": "2026-09-01T09:00:00Z",
+         "cwd": "/home/user/monrepo", "isSidechain": False,
+         "message": {"role": "user", "content": "Le parseur casse sur les shards, corrige"}},
+        {"type": "assistant", "sessionId": "s-1", "timestamp": "2026-09-01T09:01:00Z",
+         "cwd": "/home/user/monrepo", "isSidechain": False,
+         "message": {"role": "assistant", "content": [
+             {"type": "text", "text": "Je regarde le format d'abord."},
+             {"type": "tool_use", "id": "t1", "name": "Read", "input": {}}]}},
+        {"type": "user", "sessionId": "s-1", "timestamp": "2026-09-01T09:02:00Z",
+         "cwd": "/home/user/monrepo", "isSidechain": True,  # subagent sidechain
+         "message": {"role": "user", "content": "contenu interne caché"}},
+        {"type": "user", "sessionId": "s-1", "timestamp": "2026-09-01T09:03:00Z",
+         "cwd": "/home/user/monrepo", "isSidechain": False,
+         "message": {"role": "user", "content": [{"type": "text", "text": "OK commit et push"}]}},
+        "ligne corrompue pas du JSON",
+    ]
+    jsonl = proj / "session-a.jsonl"
+    jsonl.write_text("\n".join(json.dumps(e) if not isinstance(e, str) else e for e in events), encoding="utf-8")
+    convs = ingest(tmp_path / "projects" / "-home-user-monrepo")
+    assert len(convs) == 1
+    c = convs[0]
+    assert c.source == "claude-code"
+    assert c.title == "-home-user-monrepo"
+    texts = [m.text for m in c.messages]
+    assert "Le parseur casse sur les shards" in " ".join(texts)
+    assert "commit et push" in " ".join(texts)
+    assert "caché" not in " ".join(texts)  # sidechain dropped
+    assert "tool_use" not in " ".join(texts)  # tool blocks dropped
+
+
 def test_vault_generation(tmp_path: Path):
     """Vault: dashboard indexes project notes; open-loops exclude chitchat."""
     from mindprint.vault import build_vault
@@ -413,6 +451,21 @@ def test_vault_generation(tmp_path: Path):
     assert any("Timeline/" in f for f in manifest["files"])
     openloops = (tmp_path / "Open-loops.md").read_text(encoding="utf-8")
     assert "je vais au lit" not in openloops
+
+
+def test_diff_first_run_then_changes(tmp_path: Path):
+    """First run: no diff. Second run with new data: new/dropped projects reported."""
+    from mindprint.diffing import diff_profiles, load_previous, save_snapshot
+
+    profile1 = analyze(ingest(FIXTURES / "claude_export.zip"))
+    assert diff_profiles(load_previous(tmp_path), profile1) == []
+    save_snapshot(profile1, tmp_path)
+
+    prev = load_previous(tmp_path)
+    profile2 = analyze(_all_convs())  # adds chatgpt projects
+    changes = diff_profiles(prev, profile2)
+    assert any("Projet détecté".lower() in c.lower() or "projet détecté" in c.lower() for c in changes)
+    assert any("messages" in c for c in changes)
 
 
 def test_cli_bad_path():

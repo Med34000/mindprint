@@ -92,6 +92,11 @@ def main(argv: list[str] | None = None) -> int:
         manifest = build_vault(conversations, profile, vault_dir)
         print(f"   📔 Vault: {vault_dir}/ ({len(manifest['files'])} files)")
 
+    from .diffing import diff_profiles, load_previous, save_snapshot
+
+    changes = diff_profiles(load_previous(outdir), profile)
+    save_snapshot(profile, outdir)
+
     summary = profile["summary"]
     print(f"✅ Parsed {summary['conversations']} conversations "
           f"({summary['user_messages']} user messages, {summary['assistant_messages']} assistant replies)")
@@ -100,6 +105,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"   JSON: {json_path}")
     print(f"   Markdown: {md_path}")
     print(f"   Memory file: {memory_path}  ← paste into your AI's system context")
+    if changes:
+        print("\n🔄 Since last run:")
+        for line in changes:
+            print(f"   {line}")
     return 0
 
 
