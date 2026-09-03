@@ -77,6 +77,22 @@ Extracted the ZIP already? Point mindprint at the directory instead — both wor
 
 Providers changed their export formats **twice while this tool was being built** (sharded ChatGPT, manifest Claude) — both were caught by real-user tests and are now handled. This maintenance burden is exactly why this tool exists.
 
+## 📔 Vault mode
+
+`mindprint <exports> --vault` generates an Obsidian-compatible dossier next to the JSON/Markdown outputs:
+
+```
+vault/
+├── Dashboard.md       year overview, 6-month activity chart, project index
+├── Professionnel/     one note per detected project (status, dated decisions, sources)
+├── Personnel/
+├── Timeline/          one note per month: what moved
+├── Open-loops.md      intentions you stated… and never followed up on
+└── Memory-file.md     the AI-injectable block
+```
+
+Plain Markdown — works in Obsidian, any editor, or synced to mobile. Every claim links back to its source conversation. Level-1 heuristics are deliberately conservative; no LLM, no invention.
+
 ## ⚡ Performance
 
 Real-world benchmark (2026-09): a 282 MB ChatGPT export — 394 conversations, 3 677 messages — parses in **0.4 s** with ~80 MB RAM.
@@ -97,7 +113,8 @@ The test-suite generates synthetic export fixtures mimicking the real official f
 - [x] v0.2 — multi-export merge (ChatGPT + Claude in one profile, dedup across overlapping exports)
 - [x] v0.3 — **memory file**: compact AI-ready context output (`memory-file.md`) + Hermes local-DB source (experimental, read-only)
 - [ ] v0.4 — optional LLM enrichment (local Ollama, opt-in)
-- [ ] v0.4 — Gemini (Takeout) + Grok (X archive)
+- [x] v0.5 — **Obsidian-style vault**: Dashboard, per-project notes with source citations, monthly timeline, **open-loops ledger** (stated intentions never followed up)
+- [ ] v0.6 — Gemini (Takeout) + Grok (X archive), Claude Code JSONL source
 - [ ] v0.5 — timeline diffing: "what changed in my focus this month?"
 - [ ] Desktop app packaging
 

@@ -36,6 +36,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="Force the parser instead of auto-detection (use when an export was re-zipped or merged)",
     )
+    parser.add_argument(
+        "--vault",
+        action="store_true",
+        help="Also generate the Obsidian-style vault (Dashboard, project notes, timeline, open loops)",
+    )
     parser.add_argument("--version", action="version", version=f"mindprint {__version__}")
     return parser
 
@@ -79,6 +84,13 @@ def main(argv: list[str] | None = None) -> int:
     if "error" in profile:
         print(f"⚠️ {profile['error']}")
         return 1
+
+    if args.vault:
+        from .vault import build_vault
+
+        vault_dir = outdir / "vault"
+        manifest = build_vault(conversations, profile, vault_dir)
+        print(f"   📔 Vault: {vault_dir}/ ({len(manifest['files'])} files)")
 
     summary = profile["summary"]
     print(f"✅ Parsed {summary['conversations']} conversations "

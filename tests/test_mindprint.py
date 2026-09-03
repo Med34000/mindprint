@@ -398,6 +398,23 @@ def test_hermes_db_readonly(tmp_path: Path):
     assert not db.exists()  # nothing was created
 
 
+def test_vault_generation(tmp_path: Path):
+    """Vault: dashboard indexes project notes; open-loops exclude chitchat."""
+    from mindprint.vault import build_vault
+
+    convs = _all_convs()
+    from mindprint.analyze import analyze
+    profile = analyze(convs)
+    manifest = build_vault(convs, profile, tmp_path)
+    dashboard = (tmp_path / "Dashboard.md").read_text(encoding="utf-8")
+    assert "[[Atelier Odoo migration]]" in dashboard
+    assert "Open-loops" in dashboard
+    assert (tmp_path / "Memory-file.md").exists()
+    assert any("Timeline/" in f for f in manifest["files"])
+    openloops = (tmp_path / "Open-loops.md").read_text(encoding="utf-8")
+    assert "je vais au lit" not in openloops
+
+
 def test_cli_bad_path():
     proc = subprocess.run(
         [sys.executable, "-m", "mindprint.cli", "/nonexistent.zip"],
